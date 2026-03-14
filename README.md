@@ -6,9 +6,15 @@ Standalone C++ prototypes for three Boost Graph Library (BGL) algorithms used in
 
 - **Stoer–Wagner min-cut** — minimum cut in undirected weighted graphs (road network resilience).
 - **Planar faces** — planarity test and face traversal (Boyer–Myrvold + planar face traversal).
-- **Maximum weighted matching** — maximum weight matching (vehicle–pickup assignment).
+- **Articulation points** — cut vertices whose removal increases the number of connected components (critical intersections in road networks).
 
 No dependencies beyond **Boost** and the **C++17** standard library.
+
+**Algorithms implemented in this prototype repository:**
+
+- **pgr_stoerWagner()** — minimum cut in undirected weighted graphs (road network resilience).
+- **pgr_planarFaces()** — planarity test and face traversal (Boyer–Myrvold + planar face traversal).
+- **pgr_articulationPoints()** — detects critical vertices whose removal increases the number of connected components in a network. This is useful for spatial network resilience analysis such as identifying critical intersections in road networks.
 
 ---
 
@@ -26,11 +32,11 @@ Uses `boost::boyer_myrvold_planarity_test()` and `boost::planar_face_traversal()
 
 **Minimum Boost version:** 1.40
 
-### pgr_maxWeightedMatch
+### pgr_articulationPoints
 
-Uses `boost::maximum_weighted_matching()` to compute a maximum-weight matching in an undirected edge-weighted graph. The prototype models 4 vehicles (0–3) and 4 pickup requests (4–7) with compatibility scores on edges and prints matched pairs, edge weights, total weight, and unmatched vertices.
+Uses `boost::articulation_points()` (from `boost::biconnected_components.hpp`) to find cut vertices in an undirected graph. The algorithm implements Tarjan's DFS-based approach with time complexity O(V + E). The prototype builds a graph from edges (id, source, target, cost, reverse_cost) and outputs articulation node IDs sorted ascending. Use cases include identifying critical intersections in road networks whose removal would disconnect the network.
 
-**Minimum Boost version:** 1.76
+**Minimum Boost version:** 1.38
 
 ---
 
@@ -38,7 +44,7 @@ Uses `boost::maximum_weighted_matching()` to compute a maximum-weight matching i
 
 - **C++17** compiler (e.g. GCC 8+, Clang 6+)
 - **CMake** ≥ 3.15
-- **Boost** ≥ 1.76 (required by `max_weighted_match`; stoer_wagner and planar_faces need 1.38+ and 1.40+ respectively)
+- **Boost** ≥ 1.38 (stoer_wagner, planar_faces, articulation_points)
 
 **Install Boost:**
 
@@ -95,7 +101,7 @@ Or run each test binary manually:
 ```bash
 ./test_stoer_wagner
 ./test_planar_faces
-./test_max_weighted_match
+./test_articulation_points
 ```
 
 ---
@@ -148,27 +154,14 @@ Graph is NOT planar.
 Non-planar graph: skipping face traversal (no embedding).
 ```
 
-### max_weighted_match_prototype
+### articulation_points_prototype
 
 ```
-=== Full graph (edge weights = compatibility scores) ===
-  0-4: 9
-  0-5: 3
-  1-4: 2
-  1-6: 8
-  2-5: 7
-  2-7: 4
-  3-6: 3
-  3-7: 6
-
-=== Matched pairs (vehicle → pickup) ===
-  vertex 0 -> vertex 4 (weight: 9)
-  vertex 1 -> vertex 6 (weight: 8)
-  vertex 2 -> vertex 5 (weight: 7)
-  vertex 3 -> vertex 7 (weight: 6)
-Total matching weight: 30
-Unmatched vertices: (none)
-Verified: no vertex appears in more than one pair
+node
+3
+6
+7
+8
 ```
 
 ---
@@ -179,9 +172,9 @@ Each algorithm follows the same three-layer pattern:
 
 | Layer | Role | Example |
 |-------|------|--------|
-| **SQL wrapper** | User calls e.g. `pgr_stoerWagner(edges_sql)`; the SQL function is declared in the extension and invokes the C bridge. | `pgr_stoerWagner`, `pgr_planarFaces`, `pgr_maxWeightedMatch` |
+| **SQL wrapper** | User calls e.g. `pgr_stoerWagner(edges_sql)`; the SQL function is declared in the extension and invokes the C bridge. | `pgr_stoerWagner`, `pgr_planarFaces`, `pgr_articulationPoints` |
 | **C bridge** | A C function (e.g. in `stoerWagner.c`) receives the query text and options, calls the C++ driver, and returns results into PostgreSQL `SetOfRecord` / `Tuplestore`, with error and notice handling. | Converts options and edges to driver input; writes result rows. |
-| **C++ driver** | Builds a pgRouting graph from the edges, calls the BGL algorithm, and converts the result into the C structs expected by the bridge. | `Pgr_stoerWagner`, planar faces driver, max weighted match driver. |
-| **BGL call** | The actual algorithm used in the prototype. | `boost::stoer_wagner_min_cut`, `boost::boyer_myrvold_planarity_test` + `boost::planar_face_traversal`, `boost::maximum_weighted_matching` |
+| **C++ driver** | Builds a pgRouting graph from the edges, calls the BGL algorithm, and converts the result into the C structs expected by the bridge. | `Pgr_stoerWagner`, planar faces driver, articulation points driver. |
+| **BGL call** | The actual algorithm used in the prototype. | `boost::stoer_wagner_min_cut`, `boost::boyer_myrvold_planarity_test` + `boost::planar_face_traversal`, `boost::articulation_points` |
 
 The prototypes use the same BGL types and algorithms so that the logic can be carried over into the pgRouting codebase with minimal change, aside from graph construction from SQL and result formatting for PostgreSQL.
