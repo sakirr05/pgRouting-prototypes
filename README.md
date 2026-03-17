@@ -32,11 +32,6 @@ Uses `boost::boyer_myrvold_planarity_test()` and `boost::planar_face_traversal()
 
 **Minimum Boost version:** 1.40
 
-### pgr_articulationPoints
-
-Uses `boost::articulation_points()` (from `boost::biconnected_components.hpp`) to find cut vertices in an undirected graph. The algorithm implements Tarjan's DFS-based approach with time complexity O(V + E). The prototype builds a graph from edges (id, source, target, cost, reverse_cost) and outputs articulation node IDs sorted ascending. Use cases include identifying critical intersections in road networks whose removal would disconnect the network.
-
-**Minimum Boost version:** 1.38
 
 ---
 
@@ -154,15 +149,6 @@ Graph is NOT planar.
 Non-planar graph: skipping face traversal (no embedding).
 ```
 
-### articulation_points_prototype
-
-```
-node
-3
-6
-7
-8
-```
 
 ---
 
@@ -172,9 +158,9 @@ Each algorithm follows the same three-layer pattern:
 
 | Layer | Role | Example |
 |-------|------|--------|
-| **SQL wrapper** | User calls e.g. `pgr_stoerWagner(edges_sql)`; the SQL function is declared in the extension and invokes the C bridge. | `pgr_stoerWagner`, `pgr_planarFaces`, `pgr_articulationPoints` |
+| **SQL wrapper** | User calls e.g. `pgr_stoerWagner(edges_sql)`; the SQL function is declared in the extension and invokes the C bridge. | `pgr_stoerWagner`, `pgr_planarFaces`. |
 | **C bridge** | A C function (e.g. in `stoerWagner.c`) receives the query text and options, calls the C++ driver, and returns results into PostgreSQL `SetOfRecord` / `Tuplestore`, with error and notice handling. | Converts options and edges to driver input; writes result rows. |
-| **C++ driver** | Builds a pgRouting graph from the edges, calls the BGL algorithm, and converts the result into the C structs expected by the bridge. | `Pgr_stoerWagner`, planar faces driver, articulation points driver. |
-| **BGL call** | The actual algorithm used in the prototype. | `boost::stoer_wagner_min_cut`, `boost::boyer_myrvold_planarity_test` + `boost::planar_face_traversal`, `boost::articulation_points` |
+| **C++ driver** | Builds a pgRouting graph from the edges, calls the BGL algorithm, and converts the result into the C structs expected by the bridge. | `Pgr_stoerWagner`, planar faces driver. |
+| **BGL call** | The actual algorithm used in the prototype. | `boost::stoer_wagner_min_cut`, `boost::boyer_myrvold_planarity_test` + `boost::planar_face_traversal` |
 
 The prototypes use the same BGL types and algorithms so that the logic can be carried over into the pgRouting codebase with minimal change, aside from graph construction from SQL and result formatting for PostgreSQL.
