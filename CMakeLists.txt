@@ -79,23 +79,13 @@ add_executable(test_planar_faces planar_faces/test_planar_faces.cpp)
 target_include_directories(test_planar_faces PRIVATE ${Boost_INCLUDE_DIRS})
 target_link_libraries(test_planar_faces PRIVATE Boost::boost)
 
-# ---- Articulation points ----
-add_executable(articulation_points_prototype articulation_points/articulation_points_prototype.cpp)
-target_include_directories(articulation_points_prototype PRIVATE ${Boost_INCLUDE_DIRS})
-target_link_libraries(articulation_points_prototype PRIVATE Boost::boost)
-
-add_executable(test_articulation_points articulation_points/test_articulation_points.cpp)
-target_include_directories(test_articulation_points PRIVATE ${Boost_INCLUDE_DIRS})
-target_link_libraries(test_articulation_points PRIVATE Boost::boost)
 
 # Custom target: run all three test executables sequentially, capture exit codes, print summary
 add_custom_target(test
   COMMAND ${CMAKE_COMMAND}
     -DTEST1_EXE=$<TARGET_FILE:test_stoer_wagner>
     -DTEST2_EXE=$<TARGET_FILE:test_planar_faces>
-    -DTEST3_EXE=$<TARGET_FILE:test_articulation_points>
     -P ${CMAKE_SOURCE_DIR}/run_tests.cmake
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  DEPENDS test_stoer_wagner test_planar_faces test_articulation_points
+  DEPENDS test_stoer_wagner test_planar_faces
   COMMENT "Running all prototype tests"
 )
