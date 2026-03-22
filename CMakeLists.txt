@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Compile options: clean build with -Wall -Wextra
 add_compile_options(-Wall -Wextra)
 
-# Find Boost (1.38+ for stoer_wagner/planar_faces/articulation_points)
+# Find Boost (1.38+ for stoer_wagner/planar_faces/lengauer_tarjan)
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 find_package(Boost 1.38)
@@ -79,13 +79,24 @@ add_executable(test_planar_faces planar_faces/test_planar_faces.cpp)
 target_include_directories(test_planar_faces PRIVATE ${Boost_INCLUDE_DIRS})
 target_link_libraries(test_planar_faces PRIVATE Boost::boost)
 
+# ---- Lengauer-Tarjan dominator tree ----
+add_executable(lengauer_tarjan_prototype lengauer_tarjan/lengauer_tarjan_prototype.cpp)
+target_include_directories(lengauer_tarjan_prototype PRIVATE ${Boost_INCLUDE_DIRS})
+target_link_libraries(lengauer_tarjan_prototype PRIVATE Boost::boost)
+
+add_executable(test_lengauer_tarjan lengauer_tarjan/test_lengauer_tarjan.cpp)
+target_include_directories(test_lengauer_tarjan PRIVATE ${Boost_INCLUDE_DIRS})
+target_link_libraries(test_lengauer_tarjan PRIVATE Boost::boost)
+
+# Note: max_weighted_match executables are excluded from the build (kept as bonus demo folder).
 
 # Custom target: run all three test executables sequentially, capture exit codes, print summary
 add_custom_target(test
   COMMAND ${CMAKE_COMMAND}
     -DTEST1_EXE=$<TARGET_FILE:test_stoer_wagner>
     -DTEST2_EXE=$<TARGET_FILE:test_planar_faces>
+    -DTEST3_EXE=$<TARGET_FILE:test_lengauer_tarjan>
     -P ${CMAKE_SOURCE_DIR}/run_tests.cmake
-  DEPENDS test_stoer_wagner test_planar_faces
+  DEPENDS test_stoer_wagner test_planar_faces test_lengauer_tarjan
   COMMENT "Running all prototype tests"
 )
