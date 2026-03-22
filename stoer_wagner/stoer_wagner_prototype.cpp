@@ -3,6 +3,10 @@
 // Standalone prototype for pgr_stoerWagner: minimum cut via Boost's Stoer-Wagner algorithm.
 // Uses a hardcoded 8-vertex road network; prints min-cut weight, partitions, and cut edges.
 
+// Note: prototype uses 0-based BGL vertex indices.
+// pgRouting integration maps arbitrary SQL vertex IDs (1-based by convention)
+// to contiguous BGL indices via the vertex ID remapping layer — see proposal Section 14.7.
+
 #include <iostream>
 #include <vector>
 #include <boost/graph/adjacency_list.hpp>
