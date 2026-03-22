@@ -1,3 +1,5 @@
+![CI](https://github.com/sakirr05/pgRouting-prototypes/actions/workflows/ci.yml/badge.svg)
+
 # pgRouting Algorithm Prototypes
 
 ## Overview
@@ -6,7 +8,7 @@ Standalone C++ prototypes for three Boost Graph Library (BGL) algorithms used in
 
 - **Stoer–Wagner min-cut** — minimum cut in undirected weighted graphs (road network resilience).
 - **Planar faces** — planarity test and face traversal (Boyer–Myrvold + planar face traversal).
-- **Articulation points** — cut vertices whose removal increases the number of connected components (critical intersections in road networks).
+- **Lengauer–Tarjan dominator tree** — dominator tree on a directed graph, finds unavoidable intersections from a source node.
 
 No dependencies beyond **Boost** and the **C++17** standard library.
 
@@ -14,7 +16,7 @@ No dependencies beyond **Boost** and the **C++17** standard library.
 
 - **pgr_stoerWagner()** — minimum cut in undirected weighted graphs (road network resilience).
 - **pgr_planarFaces()** — planarity test and face traversal (Boyer–Myrvold + planar face traversal).
-- **pgr_articulationPoints()** — detects critical vertices whose removal increases the number of connected components in a network. This is useful for spatial network resilience analysis such as identifying critical intersections in road networks.
+- **pgr_lengauerTarjanDominatorTree()** — dominator tree on a directed graph; finds vertices that are unavoidable on all paths from a given source node (e.g. critical intersections that every emergency route must pass through).
 
 ---
 
@@ -28,10 +30,15 @@ Uses `boost::stoer_wagner_min_cut()` on an undirected weighted graph to find a m
 
 ### pgr_planarFaces
 
-Uses `boost::boyer_myrvold_planarity_test()` and `boost::planar_face_traversal()` to test planarity and enumerate faces. The prototype runs on a 3×3 street grid and on K5; it prints whether the graph is planar, the number of faces, each face’s vertex sequence, the outer face, and Euler’s formula (V − E + F = 2). Non-planar graphs (e.g. K5) are handled without crashing.
+Uses `boost::boyer_myrvold_planarity_test()` and `boost::planar_face_traversal()` to test planarity and enumerate faces. The prototype runs on a 3×3 street grid and on K5; it prints whether the graph is planar, the number of faces, each face's vertex sequence, the outer face, and Euler's formula (V − E + F = 2). Non-planar graphs (e.g. K5) are handled without crashing.
 
 **Minimum Boost version:** 1.40
 
+### pgr_lengauerTarjanDominatorTree
+
+Uses `boost::lengauer_tarjan_dominator_tree()` on a directed graph to compute the dominator tree from a given source vertex. A vertex `d` dominates vertex `v` if every path from the source to `v` passes through `d`. The prototype builds a 7-vertex directed road network (hospital → gates → bridge → downtown → airport/station) and prints the dominator tree edges, the immediate dominator for each vertex, and a practical interpretation identifying unavoidable intersections on all paths from the source node.
+
+**Minimum Boost version:** 1.38
 
 ---
 
@@ -39,7 +46,7 @@ Uses `boost::boyer_myrvold_planarity_test()` and `boost::planar_face_traversal()
 
 - **C++17** compiler (e.g. GCC 8+, Clang 6+)
 - **CMake** ≥ 3.15
-- **Boost** ≥ 1.38 (stoer_wagner, planar_faces, articulation_points)
+- **Boost** ≥ 1.38 (stoer_wagner, planar_faces, lengauer_tarjan)
 
 **Install Boost:**
 
@@ -96,8 +103,10 @@ Or run each test binary manually:
 ```bash
 ./test_stoer_wagner
 ./test_planar_faces
-./test_articulation_points
+./test_lengauer_tarjan
 ```
+
+5 stoer_wagner + 5 planar_faces + 5 lengauer_tarjan = 15 tests
 
 ---
 
@@ -161,6 +170,6 @@ Each algorithm follows the same three-layer pattern:
 | **SQL wrapper** | User calls e.g. `pgr_stoerWagner(edges_sql)`; the SQL function is declared in the extension and invokes the C bridge. | `pgr_stoerWagner`, `pgr_planarFaces`. |
 | **C bridge** | A C function (e.g. in `stoerWagner.c`) receives the query text and options, calls the C++ driver, and returns results into PostgreSQL `SetOfRecord` / `Tuplestore`, with error and notice handling. | Converts options and edges to driver input; writes result rows. |
 | **C++ driver** | Builds a pgRouting graph from the edges, calls the BGL algorithm, and converts the result into the C structs expected by the bridge. | `Pgr_stoerWagner`, planar faces driver. |
-| **BGL call** | The actual algorithm used in the prototype. | `boost::stoer_wagner_min_cut`, `boost::boyer_myrvold_planarity_test` + `boost::planar_face_traversal` |
+| **BGL call** | The actual algorithm used in the prototype. | `boost::stoer_wagner_min_cut`, `boost::boyer_myrvold_planarity_test` + `boost::planar_face_traversal`, `boost::lengauer_tarjan_dominator_tree` |
 
 The prototypes use the same BGL types and algorithms so that the logic can be carried over into the pgRouting codebase with minimal change, aside from graph construction from SQL and result formatting for PostgreSQL.
