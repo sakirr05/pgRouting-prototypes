@@ -6,7 +6,6 @@ Standalone C++ prototypes for three Boost Graph Library (BGL) algorithms used in
 
 - **Stoer–Wagner min-cut** — minimum cut in undirected weighted graphs (road network resilience).
 - **Planar faces** — planarity test and face traversal (Boyer–Myrvold + planar face traversal).
-- **Articulation points** — cut vertices whose removal increases the number of connected components (critical intersections in road networks).
 
 No dependencies beyond **Boost** and the **C++17** standard library.
 
@@ -14,7 +13,6 @@ No dependencies beyond **Boost** and the **C++17** standard library.
 
 - **pgr_stoerWagner()** — minimum cut in undirected weighted graphs (road network resilience).
 - **pgr_planarFaces()** — planarity test and face traversal (Boyer–Myrvold + planar face traversal).
-- **pgr_articulationPoints()** — detects critical vertices whose removal increases the number of connected components in a network. This is useful for spatial network resilience analysis such as identifying critical intersections in road networks.
 
 ---
 
