@@ -70,12 +70,12 @@ From the `build/` directory:
 Vertices: 9   Edges: 12
 Planar: yes
 Faces: 5  (Euler predicts E - V + 2 = 5)
-  Face 1: 0, 1, 4, 3  (size 4)
-  Face 2: 1, 2, 5, 4  (size 4)
-  Face 3: 3, 4, 7, 6  (size 4)
-  Face 4: 4, 5, 8, 7  (size 4)
-  Face 5: 0, 3, 6, 7, 8, 5, 2, 1  (size 8)
-Outer face: Face 5 (8 vertices)
+  Face 1: 0, 1, 2, 5, 8, 7, 6, 3  (size 8)
+  Face 2: 1, 0, 3, 4  (size 4)
+  Face 3: 2, 1, 4, 5  (size 4)
+  Face 4: 4, 3, 6, 7  (size 4)
+  Face 5: 5, 4, 7, 8  (size 4)
+Outer face: Face 1 (8 vertices)
 Euler check: 9 - 12 + 5 = 2  (expected 2)
 
 === K5 Complete Graph (non-planar) ===
@@ -90,7 +90,7 @@ The 3x3 grid has 4 bounded rectangular faces plus 1 unbounded outer face, satisf
 
 ```
 === K-Core Decomposition (Batagelj-Zaversnik) ===
-Vertices: 12   Edges: 16
+Vertices: 12   Edges: 18
 
 Vertex  | Core Number
 --------+------------
@@ -114,7 +114,7 @@ Core 3 vertices: 5, 6, 7, 8, 9, 10
 Dead-end verification (core 1 = degree-1 leaves): vertex 0 (degree 1), vertex 11 (degree 1)
 ```
 
-Vertices 0 and 11 are degree-1 leaves and get peeled first (core 1). The corridor chain 1-2-3-4 collapses next (core 2). The dense downtown cluster 5-10 survives to core 3 because every vertex in it has at least 3 neighbors within the cluster.
+Vertices 0 and 11 are degree-1 leaves and get peeled first (core 1). The corridor ring 1-2-3-4 collapses next (core 2). The dense downtown cluster 5-10 survives to core 3 because every vertex in it has at least 3 neighbors within the cluster.
 
 ## Algorithm Notes
 
