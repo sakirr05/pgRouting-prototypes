@@ -31,52 +31,47 @@ using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
 // ---------------------------------------------------------------------------
 // build_urban_network
 //
-// 12-vertex graph designed to exercise all pruning layers of core_numbers:
+// 12-vertex graph designed to exercise all three pruning layers:
 //
-//       0                     11
-//        \                   /
-//         1 - 2 - 3 - 4 - 5
-//                         / \
-//                        6   7
-//                        |\ /|
-//                        | 8 |
-//                        |/ \|
-//                        9  10
+//   Vertex 0  : dead-end leaf off vertex 1        => core 1
+//   Vertex 11 : dead-end leaf off vertex 4        => core 1
+//   Vertices 1,2,3,4 : corridor ring (1-2-3-4-1)
+//       plus bridge edge 4-5 into the cluster     => core 2
+//   Vertices 5,6,7,8,9,10 : dense cluster
+//       each vertex has >= 3 neighbors in cluster  => core 3
 //
-// Structural breakdown:
-//   Vertex 0  : dead-end (degree 1), attached to vertex 1
-//   Vertex 11 : dead-end (degree 1), attached to vertex 5
-//   Vertices 1,2,3,4 : corridor path (effective degree 2 chain)
-//   Vertices 5,6,7,8,9,10 : dense cluster (each vertex has degree >= 3)
-//
-// Expected core numbers after Batagelj-Zaversnik peeling:
-//   Core 1 : vertices 0, 11           (peeled first, degree-1 leaves)
-//   Core 2 : vertices 1, 2, 3, 4      (peeled next, corridor collapses)
-//   Core 3 : vertices 5, 6, 7, 8, 9, 10 (dense cluster survives)
+// After Batagelj-Zaversnik peeling:
+//   k=1 peels: 0, 11   (degree-1 leaves)
+//   k=2 peels: 1,2,3,4 (corridor: each has exactly 2 corridor neighbors)
+//   k=3 stays: 5,6,7,8,9,10 (dense cluster survives)
 // ---------------------------------------------------------------------------
 static Graph build_urban_network() {
     Graph g(12);
 
-    // Dead-end streets
-    add_edge(0,  1, g);   // vertex 0 is a leaf
-    add_edge(11, 5, g);   // vertex 11 is a leaf
+    // Dead-end streets (degree 1 leaves)
+    add_edge(0,  1, g);    // vertex 0 hangs off vertex 1
+    add_edge(11, 4, g);    // vertex 11 hangs off vertex 4
 
-    // Corridor path: 1 - 2 - 3 - 4 - 5
+    // Corridor ring: 1 - 2 - 3 - 4 - 1
+    // Each corridor vertex has degree 2 within the ring, so they form
+    // a 2-core that survives the k=1 round but collapses at k=2.
     add_edge(1, 2, g);
     add_edge(2, 3, g);
     add_edge(3, 4, g);
+    add_edge(4, 1, g);
+
+    // Bridge: corridor connects to the dense cluster through vertex 5
     add_edge(4, 5, g);
 
-    // Dense downtown cluster (degree >= 3 for vertices 5..10)
-    //
-    // The cluster forms a near-complete subgraph on {5,6,7,8,9,10}
-    // so that every vertex in it retains degree >= 3 after peeling.
+    // Dense downtown cluster on {5, 6, 7, 8, 9, 10}
+    // Wired so every vertex has at least 3 neighbors within the cluster.
     add_edge(5,  6, g);
     add_edge(5,  7, g);
+    add_edge(5,  8, g);
     add_edge(6,  7, g);
     add_edge(6,  8, g);
     add_edge(6,  9, g);
-    add_edge(7,  8, g);
+    add_edge(7,  9, g);
     add_edge(7, 10, g);
     add_edge(8,  9, g);
     add_edge(8, 10, g);
