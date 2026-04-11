@@ -1,164 +1,141 @@
 # pgRouting Algorithm Prototypes
 
-## Overview
+Standalone C++17 prototypes for two Boost Graph Library algorithms that I am proposing to implement in pgRouting as part of Google Summer of Code.
 
-Standalone C++ prototypes for three Boost Graph Library (BGL) algorithms used in pgRouting. These programs demonstrate technical competency for GSoC and map directly to the SQL → C bridge → C++ driver → BGL architecture of pgRouting.
+| Algorithm | BGL Function | Prototype File |
+|-----------|-------------|----------------|
+| Planar Face Extraction (`pgr_planarFaces`) | `boost::boyer_myrvold_planarity_test` + `boost::planar_face_traversal` | `planar_faces/planar_faces_prototype.cpp` |
+| K-Core Decomposition (`pgr_coreNumbers`) | `boost::core_numbers` (Batagelj-Zaversnik) | `kcore/kcore_prototype.cpp` |
 
-- **Stoer–Wagner min-cut** — minimum cut in undirected weighted graphs (road network resilience).
-- **Planar faces** — planarity test and face traversal (Boyer–Myrvold + planar face traversal).
-
-No dependencies beyond **Boost** and the **C++17** standard library.
-
-**Algorithms implemented in this prototype repository:**
-
-- **pgr_stoerWagner()** — minimum cut in undirected weighted graphs (road network resilience).
-- **pgr_planarFaces()** — planarity test and face traversal (Boyer–Myrvold + planar face traversal).
-
----
-
-## Algorithms
-
-### pgr_stoerWagner
-
-Uses `boost::stoer_wagner_min_cut()` on an undirected weighted graph to find a minimum cut and its weight. The prototype builds an 8-vertex road network (intersections 0–7) with given edge capacities and prints the min-cut weight, the two partitions, and the edges that form the cut.
-
-**Minimum Boost version:** 1.38
-
-### pgr_planarFaces
-
-Uses `boost::boyer_myrvold_planarity_test()` and `boost::planar_face_traversal()` to test planarity and enumerate faces. The prototype runs on a 3×3 street grid and on K5; it prints whether the graph is planar, the number of faces, each face’s vertex sequence, the outer face, and Euler’s formula (V − E + F = 2). Non-planar graphs (e.g. K5) are handled without crashing.
-
-**Minimum Boost version:** 1.40
-
-
----
+Both programs are self-contained: they hardcode their test graphs, run the BGL algorithms, and print the results. No PostgreSQL, no external data files, no runtime dependencies beyond Boost headers.
 
 ## Requirements
 
-- **C++17** compiler (e.g. GCC 8+, Clang 6+)
-- **CMake** ≥ 3.15
-- **Boost** ≥ 1.38 (stoer_wagner, planar_faces, articulation_points)
+- C++17 compiler (GCC 8+, Clang 6+, or MSVC 19.14+)
+- CMake 3.15 or newer
+- Boost 1.40 or newer (header-only; no compiled Boost libraries needed)
 
-**Install Boost:**
+Install Boost:
 
-- **Ubuntu:** `sudo apt install libboost-all-dev`
-- **macOS:** `brew install boost`
-- **Windows:** `choco install boost-msvc-14.3`
+```bash
+# Ubuntu / Debian
+sudo apt install libboost-all-dev
 
----
+# macOS
+brew install boost
+
+# Windows (vcpkg)
+vcpkg install boost
+```
 
 ## Build Instructions
-
-From the project root (`pgRouting-prototypes/`):
 
 ```bash
 mkdir build && cd build
 cmake ..
 make
-make test
 ```
 
-Optional: if Boost is not in a standard location, set `BOOST_ROOT`:
+This produces two executables: `planar_faces_prototype` and `kcore_prototype`.
+
+If Boost is installed in a non-standard location:
 
 ```bash
 cmake .. -DBOOST_ROOT=/path/to/boost
 make
-make test
 ```
 
-To build a single target (e.g. Stoer–Wagner prototype):
+To build only one target:
 
 ```bash
-make stoer_wagner_prototype
+make planar_faces_prototype
+make kcore_prototype
 ```
 
-Standalone compile (without CMake) for one file, from the algorithm directory:
+## Running
+
+From the `build/` directory:
 
 ```bash
-g++ -std=c++17 -Wall -Wextra stoer_wagner_prototype.cpp -o stoer_wagner_prototype -lboost_graph
+./planar_faces_prototype
+./kcore_prototype
 ```
 
----
-
-## Running Tests
-
-Run all test executables and get PASS/FAIL per test:
-
-```bash
-cd build
-make test
-```
-
-Or run each test binary manually:
-
-```bash
-./test_stoer_wagner
-./test_planar_faces
-./test_articulation_points
-```
-
----
-
-## Sample Output
-
-### stoer_wagner_prototype
-
-```
-=== Graph edges and weights (road network) ===
-  0-1: 4
-  0-4: 3
-  1-2: 3
-  1-4: 2
-  1-5: 2
-  2-3: 1
-  2-6: 2
-  3-7: 2
-  4-5: 3
-  5-6: 2
-  6-7: 3
-
-Minimum cut weight: 3
-Partition A vertices: 3
-Partition B vertices: 0, 1, 2, 4, 5, 6, 7
-Edges in the cut (crossing the partition): (2-3, weight=1) (3-7, weight=2)
-Removing these 2 road(s) would disconnect the network.
-Interpretation: min-cut weight = 3.
-```
+## Expected Output
 
 ### planar_faces_prototype
 
 ```
-=== 3x3 street grid ===
-Vertices V = 9, Edges E = 12
+=== 3x3 Street Grid (planar) ===
+Vertices: 9   Edges: 12
 Planar: yes
-Total number of faces F = 5 (Euler: F = E - V + 2 = 5)
-Face 1 vertex sequence: 0, 1, 4, 3 (size 4)
-Face 2 vertex sequence: 1, 2, 5, 4 (size 4)
-Face 3 vertex sequence: 3, 4, 7, 6 (size 4)
-Face 4 vertex sequence: 4, 5, 8, 7 (size 4)
-Face 5 vertex sequence: 0, 3, 6, 7, 8, 5, 2, 1 (size 8)
-Outer (unbounded) face: Face 5 (has most vertices: 8)
-Euler formula: V - E + F = 9 - 12 + 5 = 2 (expected 2)
+Faces: 5  (Euler predicts E - V + 2 = 5)
+  Face 1: 0, 1, 4, 3  (size 4)
+  Face 2: 1, 2, 5, 4  (size 4)
+  Face 3: 3, 4, 7, 6  (size 4)
+  Face 4: 4, 5, 8, 7  (size 4)
+  Face 5: 0, 3, 6, 7, 8, 5, 2, 1  (size 8)
+Outer face: Face 5 (8 vertices)
+Euler check: 9 - 12 + 5 = 2  (expected 2)
 
-=== K5 (complete graph on 5 vertices) ===
-Vertices V = 5, Edges E = 10
+=== K5 Complete Graph (non-planar) ===
+Vertices: 5   Edges: 10
 Planar: no
-Graph is NOT planar.
-Non-planar graph: skipping face traversal (no embedding).
+Graph is non-planar, skipping traversal.
 ```
 
+The 3x3 grid has 4 bounded rectangular faces plus 1 unbounded outer face, satisfying Euler's formula V - E + F = 2. K5 is correctly detected as non-planar and the program exits cleanly without crashing.
 
----
+### kcore_prototype
 
-## pgRouting Integration Notes
+```
+=== K-Core Decomposition (Batagelj-Zaversnik) ===
+Vertices: 12   Edges: 16
 
-Each algorithm follows the same three-layer pattern:
+Vertex  | Core Number
+--------+------------
+    0   |     1
+    1   |     2
+    2   |     2
+    3   |     2
+    4   |     2
+    5   |     3
+    6   |     3
+    7   |     3
+    8   |     3
+    9   |     3
+   10   |     3
+   11   |     1
 
-| Layer | Role | Example |
-|-------|------|--------|
-| **SQL wrapper** | User calls e.g. `pgr_stoerWagner(edges_sql)`; the SQL function is declared in the extension and invokes the C bridge. | `pgr_stoerWagner`, `pgr_planarFaces`. |
-| **C bridge** | A C function (e.g. in `stoerWagner.c`) receives the query text and options, calls the C++ driver, and returns results into PostgreSQL `SetOfRecord` / `Tuplestore`, with error and notice handling. | Converts options and edges to driver input; writes result rows. |
-| **C++ driver** | Builds a pgRouting graph from the edges, calls the BGL algorithm, and converts the result into the C structs expected by the bridge. | `Pgr_stoerWagner`, planar faces driver. |
-| **BGL call** | The actual algorithm used in the prototype. | `boost::stoer_wagner_min_cut`, `boost::boyer_myrvold_planarity_test` + `boost::planar_face_traversal` |
+Core 1 vertices: 0, 11
+Core 2 vertices: 1, 2, 3, 4
+Core 3 vertices: 5, 6, 7, 8, 9, 10
 
-The prototypes use the same BGL types and algorithms so that the logic can be carried over into the pgRouting codebase with minimal change, aside from graph construction from SQL and result formatting for PostgreSQL.
+Dead-end verification (core 1 = degree-1 leaves): vertex 0 (degree 1), vertex 11 (degree 1)
+```
+
+Vertices 0 and 11 are degree-1 leaves and get peeled first (core 1). The corridor chain 1-2-3-4 collapses next (core 2). The dense downtown cluster 5-10 survives to core 3 because every vertex in it has at least 3 neighbors within the cluster.
+
+## Algorithm Notes
+
+**Planar Face Traversal** works in two steps. First, `boyer_myrvold_planarity_test` checks whether the graph can be drawn on a plane without edge crossings. If it can, the test also computes a *planar embedding*, which is a clockwise ordering of edges around each vertex. Second, `planar_face_traversal` walks that embedding and reports the vertex sequence of every face through a visitor callback. In the pgRouting extension, the visitor output maps directly to the SQL result set rows.
+
+**K-Core Decomposition** uses the Batagelj-Zaversnik algorithm. It repeatedly removes vertices whose current degree is below *k*, starting from k=1 and working upward. The core number of a vertex is the highest value of *k* for which that vertex still belongs to the remaining subgraph. This is useful for identifying the structurally important core of a road network versus peripheral dead-end streets.
+
+## Repository Structure
+
+```
+pgRouting-prototypes/
+  CMakeLists.txt
+  README.md
+  planar_faces/
+    planar_faces_prototype.cpp
+  kcore/
+    kcore_prototype.cpp
+```
+
+## Author
+
+Sakir ([@sakirr05](https://github.com/sakirr05))
+
+GSoC proposal: Planar Face Extraction and K-Core Decomposition for pgRouting.
