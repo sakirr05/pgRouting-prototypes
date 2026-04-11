@@ -1,17 +1,32 @@
-// Compile: g++ -std=c++17 -Wall -Wextra planar_faces_prototype.cpp -o planar_faces_prototype -lboost_graph
-//
-// Standalone prototype for pgr_planarFaces: planarity test and face traversal via BGL.
-// Uses 3x3 grid and K5; prints faces, outer face, and Euler formula.
+/*
+ * planar_faces_prototype.cpp
+ *
+ * GSoC competency prototype for pgr_planarFaces.
+ * Demonstrates:
+ *   1. boost::boyer_myrvold_planarity_test  (planarity check + embedding)
+ *   2. boost::planar_face_traversal         (face extraction via visitor)
+ *
+ * Test Case A: 3x3 planar street grid  (9 vertices, 12 edges, 5 faces)
+ * Test Case B: K5 complete graph        (non-planar, graceful exit)
+ *
+ * Build:
+ *   g++ -std=c++17 -Wall -Wextra planar_faces_prototype.cpp -o planar_faces_prototype
+ *
+ * Or via CMake from the project root (see README.md).
+ */
 
 #include <iostream>
 #include <vector>
+#include <algorithm>
+
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
-#include <boost/graph/properties.hpp>
-#include <boost/graph/planar_face_traversal.hpp>
 #include <boost/graph/boyer_myrvold_planar_test.hpp>
+#include <boost/graph/planar_face_traversal.hpp>
 #include <boost/property_map/property_map.hpp>
 
+// Graph type: undirected, vecS storage, with an edge_index property
+// (edge_index is required by the BGL planar embedding machinery).
 using Graph = boost::adjacency_list<
     boost::vecS,
     boost::vecS,
@@ -20,144 +35,176 @@ using Graph = boost::adjacency_list<
     boost::property<boost::edge_index_t, int>>;
 
 using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
-using Edge = boost::graph_traits<Graph>::edge_descriptor;
+using Edge   = boost::graph_traits<Graph>::edge_descriptor;
 
-// Custom visitor: records each face's vertex and edge sequences; counts faces.
+// ---------------------------------------------------------------------------
+// FaceRecorderVisitor
+//
+// Conforms to the BGL PlanarFaceTraversalVisitor concept.
+// On each face boundary the BGL calls: begin_face(), then a sequence of
+// next_vertex(v) / next_edge(e) pairs, then end_face().
+// We record the vertex sequence of every face for later printing.
+// ---------------------------------------------------------------------------
 struct FaceRecorderVisitor : public boost::planar_face_traversal_visitor {
-    const Graph* g_ptr = nullptr;
-    int face_count = 0;
-    std::vector<int> current_face_vertices;
-    std::vector<std::pair<int, int>> current_face_edges;
-    std::vector<std::vector<int>> all_faces;
 
-    // planar_face_traversal_visitor: begin_face() — called when starting a new face.
+    // Storage: one vector<int> per face, holding the vertex indices in order.
+    std::vector<std::vector<int>> faces;
+
+    // Scratch space for the face currently being walked.
+    std::vector<int> current;
+
+    // Called when the traversal enters a new face.
     void begin_face() {
-        face_count++;
-        current_face_vertices.clear();
-        current_face_edges.clear();
+        current.clear();
     }
 
-    // planar_face_traversal_visitor: next_vertex(Vertex v) — called for each vertex on the face boundary.
+    // Called for each vertex along the face boundary.
     template <typename V>
     void next_vertex(V v) {
-        current_face_vertices.push_back(static_cast<int>(v));
+        current.push_back(static_cast<int>(v));
     }
 
-    // planar_face_traversal_visitor: next_edge(Edge e) — called for each edge on the face boundary.
+    // Called for each edge along the face boundary (unused here, but required).
     template <typename E>
-    void next_edge(E e) {
-        if (g_ptr) {
-            int u = static_cast<int>(source(e, *g_ptr));
-            int v = static_cast<int>(target(e, *g_ptr));
-            current_face_edges.push_back({u, v});
-        }
-    }
+    void next_edge(E) {}
 
-    // planar_face_traversal_visitor: end_face() — called when finishing the current face.
+    // Called when the face boundary is complete.
     void end_face() {
-        all_faces.push_back(current_face_vertices);
-        (void)current_face_edges;  // recorded for completeness; we print vertex sequence
+        faces.push_back(current);
     }
 };
 
-// Build 3x3 street grid: 0-1-2 / 3-4-5 / 6-7-8 with horizontal and vertical edges.
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// Assign sequential edge indices starting from 0.
+// The BGL planar embedding algorithms require edge_index to be populated.
+static void assign_edge_indices(Graph& g) {
+    auto idx_map = get(boost::edge_index, g);
+    int i = 0;
+    for (auto [it, end] = edges(g); it != end; ++it) {
+        put(idx_map, *it, i++);
+    }
+}
+
+// Build a 3x3 street grid:
+//
+//   0 - 1 - 2
+//   |   |   |
+//   3 - 4 - 5
+//   |   |   |
+//   6 - 7 - 8
+//
+// 9 vertices, 12 edges. Planar with 5 faces (4 bounded + 1 outer).
 static Graph build_3x3_grid() {
     Graph g(9);
-    add_edge(0, 1, g);
-    add_edge(1, 2, g);
-    add_edge(3, 4, g);
-    add_edge(4, 5, g);
-    add_edge(6, 7, g);
-    add_edge(7, 8, g);
-    add_edge(0, 3, g);
-    add_edge(3, 6, g);
-    add_edge(1, 4, g);
-    add_edge(4, 7, g);
-    add_edge(2, 5, g);
-    add_edge(5, 8, g);
+
+    // horizontal rows
+    add_edge(0, 1, g); add_edge(1, 2, g);
+    add_edge(3, 4, g); add_edge(4, 5, g);
+    add_edge(6, 7, g); add_edge(7, 8, g);
+
+    // vertical columns
+    add_edge(0, 3, g); add_edge(3, 6, g);
+    add_edge(1, 4, g); add_edge(4, 7, g);
+    add_edge(2, 5, g); add_edge(5, 8, g);
+
+    assign_edge_indices(g);
     return g;
 }
 
-// Assign edge indices (required for planar_face_traversal / embedding).
-static void set_edge_indices(Graph& g) {
-    auto eidx = get(boost::edge_index, g);
-    boost::graph_traits<Graph>::edges_size_type i = 0;
-    for (auto [ei, ei_end] = edges(g); ei != ei_end; ++ei)
-        put(eidx, *ei, static_cast<int>(i++));
-}
-
-static void run_planar_demo(Graph& g, const char* name) {
-    const auto V = num_vertices(g);
-    const auto E = num_edges(g);
-
-    std::cout << "=== " << name << " ===\n";
-    std::cout << "Vertices V = " << V << ", Edges E = " << E << "\n";
-
-    // BGL planar embedding: for each vertex, clockwise order of incident edges (used by face traversal).
-    using Embedding = std::vector<std::vector<Edge>>;
-    Embedding embedding(V);
-
-    // BGL boyer_myrvold_planarity_test: tests planarity; if planar, fills embedding for face traversal.
-    bool planar = boost::boyer_myrvold_planarity_test(
-        boost::boyer_myrvold_params::graph = g,
-        boost::boyer_myrvold_params::embedding = &embedding[0]);
-
-    std::cout << "Planar: " << (planar ? "yes" : "no") << "\n";
-
-    if (!planar) {
-        std::cout << "Graph is NOT planar.\n";
-        std::cout << "Non-planar graph: skipping face traversal (no embedding).\n\n";
-        return;
-    }
-
-    // BGL planar_face_traversal: walks each face using the embedding; visitor records vertices/edges per face.
-    FaceRecorderVisitor vis;
-    vis.g_ptr = &g;
-    boost::planar_face_traversal(g, &embedding[0], vis);
-
-    const int F = vis.face_count;
-    std::cout << "Total number of faces F = " << F << " (Euler: F = E - V + 2 = " << (E - V + 2) << ")\n";
-
-    for (size_t i = 0; i < vis.all_faces.size(); ++i) {
-        std::cout << "Face " << (i + 1) << " vertex sequence: ";
-        for (size_t j = 0; j < vis.all_faces[i].size(); ++j)
-            std::cout << (j ? ", " : "") << vis.all_faces[i][j];
-        std::cout << " (size " << vis.all_faces[i].size() << ")\n";
-    }
-
-    // Outer (unbounded) face: the one with the most vertices.
-    size_t outer_idx = 0;
-    for (size_t i = 1; i < vis.all_faces.size(); ++i)
-        if (vis.all_faces[i].size() > vis.all_faces[outer_idx].size())
-            outer_idx = i;
-    std::cout << "Outer (unbounded) face: Face " << (outer_idx + 1) << " (has most vertices: "
-              << vis.all_faces[outer_idx].size() << ")\n";
-
-    std::cout << "Euler formula: V - E + F = " << V << " - " << E << " + " << F
-              << " = " << (V - E + F) << " (expected 2)\n\n";
-}
-
-// K5: complete graph on 5 vertices (non-planar).
+// Build K5 (complete graph on 5 vertices).
+// K5 is the smallest non-planar complete graph (Kuratowski's theorem).
 static Graph build_K5() {
     Graph g(5);
     for (int i = 0; i < 5; ++i)
         for (int j = i + 1; j < 5; ++j)
             add_edge(static_cast<Vertex>(i), static_cast<Vertex>(j), g);
+
+    assign_edge_indices(g);
     return g;
 }
 
-int main() {
-    try {
-        Graph grid = build_3x3_grid();
-        set_edge_indices(grid);
-        run_planar_demo(grid, "3x3 street grid");
+// ---------------------------------------------------------------------------
+// run_planar_pipeline
+//
+// Two-step pipeline matching the pgr_planarFaces design:
+//   Step 1: boyer_myrvold_planarity_test  (planarity + embedding)
+//   Step 2: planar_face_traversal         (face enumeration via visitor)
+//
+// If the graph is non-planar, prints a warning and returns gracefully.
+// ---------------------------------------------------------------------------
+static void run_planar_pipeline(Graph& g, const char* label) {
+    const auto V = num_vertices(g);
+    const auto E = num_edges(g);
 
-        Graph k5 = build_K5();
-        set_edge_indices(k5);
-        run_planar_demo(k5, "K5 (complete graph on 5 vertices)");
-    } catch (const std::exception& e) {
-        std::cout << "Error: " << e.what() << "\n";
-        return 1;
+    std::cout << "=== " << label << " ===" << "\n";
+    std::cout << "Vertices: " << V << "   Edges: " << E << "\n";
+
+    // Step 1: planarity test.
+    // If the graph is planar, boyer_myrvold also computes a combinatorial
+    // planar embedding (clockwise edge ordering per vertex) that is needed
+    // by the face traversal.
+    using EmbeddingEntry = std::vector<Edge>;
+    std::vector<EmbeddingEntry> embedding(V);
+
+    bool is_planar = boost::boyer_myrvold_planarity_test(
+        boost::boyer_myrvold_params::graph = g,
+        boost::boyer_myrvold_params::embedding = &embedding[0]);
+
+    std::cout << "Planar: " << (is_planar ? "yes" : "no") << "\n";
+
+    if (!is_planar) {
+        // In the real pgRouting extension this would emit a SQL WARNING
+        // and return an empty result set. Here we just print and return.
+        std::cout << "Graph is non-planar, skipping traversal." << "\n\n";
+        return;
     }
+
+    // Step 2: face traversal using the computed embedding.
+    FaceRecorderVisitor visitor;
+    boost::planar_face_traversal(g, &embedding[0], visitor);
+
+    const int F = static_cast<int>(visitor.faces.size());
+
+    std::cout << "Faces: " << F
+              << "  (Euler predicts E - V + 2 = " << (E - V + 2) << ")\n";
+
+    for (size_t i = 0; i < visitor.faces.size(); ++i) {
+        std::cout << "  Face " << (i + 1) << ": ";
+        const auto& face = visitor.faces[i];
+        for (size_t j = 0; j < face.size(); ++j) {
+            if (j) std::cout << ", ";
+            std::cout << face[j];
+        }
+        std::cout << "  (size " << face.size() << ")\n";
+    }
+
+    // Identify the outer (unbounded) face as the one with the most vertices.
+    size_t outer = 0;
+    for (size_t i = 1; i < visitor.faces.size(); ++i) {
+        if (visitor.faces[i].size() > visitor.faces[outer].size())
+            outer = i;
+    }
+    std::cout << "Outer face: Face " << (outer + 1)
+              << " (" << visitor.faces[outer].size() << " vertices)\n";
+
+    // Verify Euler's formula for connected planar graphs: V - E + F = 2
+    int euler = static_cast<int>(V) - static_cast<int>(E) + F;
+    std::cout << "Euler check: " << V << " - " << E << " + " << F
+              << " = " << euler << "  (expected 2)\n\n";
+}
+
+// ---------------------------------------------------------------------------
+int main() {
+    // Test Case A: planar graph
+    Graph grid = build_3x3_grid();
+    run_planar_pipeline(grid, "3x3 Street Grid (planar)");
+
+    // Test Case B: non-planar graph (must not crash)
+    Graph k5 = build_K5();
+    run_planar_pipeline(k5, "K5 Complete Graph (non-planar)");
+
     return 0;
 }
