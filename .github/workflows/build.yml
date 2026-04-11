@@ -1,0 +1,29 @@
+name: Build
+
+on:
+  push:
+    branches: [main, fixes]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Boost
+        run: sudo apt-get update && sudo apt-get install -y libboost-all-dev
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run planar_faces_prototype
+        run: ./build/planar_faces_prototype
+
+      - name: Run kcore_prototype
+        run: ./build/kcore_prototype
